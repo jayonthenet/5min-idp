@@ -34,16 +34,7 @@ terraform -chdir=setup/terraform init -upgrade
 terraform -chdir=setup/terraform apply -auto-approve
 
 # Create Gitea Runner for Actions CI
-RUNNER_TOKEN=""
-while true; do
-  RUNNER_TOKEN=$(curl -s -X 'GET' 'http://5min-idp-control-plane:30080/api/v1/admin/runners/registration-token' -H 'accept: application/json' -H 'authorization: NW1pbmFkbWluOjVtaW5hZG1pbg==')
-  if [[ $RUNNER_TOKEN == *"token"* ]]; then
-    RUNNER_TOKEN=$(echo $RUNNER_TOKEN | jq -r '.token')
-    break
-  fi
-  echo "Waiting for Gitea to be ready... sleep 3s..."
-  sleep 3
-done
+RUNNER_TOKEN=$(curl -s -X 'GET' 'http://5min-idp-control-plane:30080/api/v1/admin/runners/registration-token' -H 'accept: application/json' -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==' | jq -r '.token')
 
 docker volume create gitea_runner_data
 docker create \
@@ -59,6 +50,20 @@ docker create \
     gitea/act_runner:latest
 docker cp setup/gitea/config.yaml gitea_runner:/config.yaml
 docker start gitea_runner
+
+# Create Backstage clone
+curl -X 'POST' \
+  'http://5min-idp-control-plane:30080/api/v1/repos/migrate' \
+  -H 'accept: application/json' \
+  -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "clone_addr": "https://github.com/humanitec-architecture/backstage.git",
+  "mirror": false,
+  "private": false,
+  "repo_name": "backstage",
+  "repo_owner": "5minadmin"
+}'
 
 # 3. Add the registry config to the nodes
 #
