@@ -12,6 +12,7 @@ if [ "$(docker inspect -f '{{.State.Running}}' "${reg_name}" 2>/dev/null || true
     registry:2
 fi
 
+# 2. Create Kind cluster
 if [ ! -f /state/kube/config.yaml ]; then
   kind create cluster -n 5min-idp --kubeconfig /state/kube/config.yaml --config ./setup/kind/cluster.yaml
 fi
@@ -31,6 +32,33 @@ export TF_VAR_kubeconfig=$kubeconfig_docker
 
 terraform -chdir=setup/terraform init -upgrade
 terraform -chdir=setup/terraform apply -auto-approve
+
+# Create Gitea Runner for Actions CI
+RUNNER_TOKEN=""
+while true; do
+  RUNNER_TOKEN=$(curl -s -X 'GET' 'http://5min-idp-control-plane:30080/api/v1/admin/runners/registration-token' -H 'accept: application/json' -H 'authorization: NW1pbmFkbWluOjVtaW5hZG1pbg==')
+  if [[ $RUNNER_TOKEN == *"token"* ]]; then
+    RUNNER_TOKEN=$(echo $RUNNER_TOKEN | jq -r '.token')
+    break
+  fi
+  echo "Waiting for Gitea to be ready... sleep 3s..."
+  sleep 3
+done
+
+docker volume create gitea_runner_data
+docker create \
+    --name gitea_runner \
+    -v gitea_runner_data:/data \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -e CONFIG_FILE=/config.yaml \
+    -e GITEA_INSTANCE_URL=http://5min-idp-control-plane:30080 \
+    -e GITEA_RUNNER_REGISTRATION_TOKEN=$RUNNER_TOKEN \
+    -e GITEA_RUNNER_NAME=local \
+    -e GITEA_RUNNER_LABELS=local \
+    --network kind \
+    gitea/act_runner:latest
+docker cp setup/gitea/config.yaml gitea_runner:/config.yaml
+docker start gitea_runner
 
 # 3. Add the registry config to the nodes
 #
