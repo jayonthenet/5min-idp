@@ -65,6 +65,13 @@ resource "humanitec_resource_definition_criteria" "agent" {
 
   force_delete = true
 }
+resource "humanitec_resource_definition_criteria" "agent_backstage" {
+  resource_definition_id = humanitec_resource_definition.agent.id
+  res_id                 = "agent"
+  app_id                 = humanitec_application.backstage.id
+
+  force_delete = true
+}
 
 locals {
   parsed_kubeconfig = yamldecode(file(var.kubeconfig))
@@ -91,6 +98,16 @@ resource "humanitec_resource_definition" "cluster_local" {
 resource "humanitec_resource_definition_criteria" "cluster_local" {
   resource_definition_id = humanitec_resource_definition.cluster_local.id
   app_id                 = humanitec_application.demo.id
+
+  force_delete = true
+
+  depends_on = [
+    humanitec_resource_definition_criteria.agent
+  ]
+}
+resource "humanitec_resource_definition_criteria" "cluster_local_backstage" {
+  resource_definition_id = humanitec_resource_definition.cluster_local.id
+  app_id                 = humanitec_application.backstage.id
 
   force_delete = true
 

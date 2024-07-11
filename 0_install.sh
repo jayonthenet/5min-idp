@@ -28,13 +28,21 @@ kubeconfig_docker=/state/kube/config-internal.yaml
 kind export kubeconfig --internal  -n 5min-idp --kubeconfig "$kubeconfig_docker"
 
 export TF_VAR_humanitec_org=$HUMANITEC_ORG
+export TF_VAR_humanitec_token=$(yq -r '.token' ~/.humctl)
 export TF_VAR_kubeconfig=$kubeconfig_docker
 
 terraform -chdir=setup/terraform init -upgrade
 terraform -chdir=setup/terraform apply -auto-approve
 
 # Create Gitea Runner for Actions CI
-RUNNER_TOKEN=$(curl -s -X 'GET' 'http://5min-idp-control-plane:30080/api/v1/admin/runners/registration-token' -H 'accept: application/json' -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==' | jq -r '.token')
+RUNNER_TOKEN=""
+while [[ -z $RUNNER_TOKEN ]]; do
+  response=$(curl -s -X 'GET' 'http://5min-idp-control-plane:30080/api/v1/admin/runners/registration-token' -H 'accept: application/json' -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==')
+  if [[ $response == *"token"* ]]; then
+    RUNNER_TOKEN=$(echo $response | jq -r '.token')
+  fi
+  sleep 1
+done
 
 docker volume create gitea_runner_data
 docker create \
@@ -51,7 +59,17 @@ docker create \
 docker cp setup/gitea/config.yaml gitea_runner:/config.yaml
 docker start gitea_runner
 
-# Create Backstage clone
+# Create Gitea org and Backstage clone with configuration
+curl -X 'POST' \
+  'http://5min-idp-control-plane:30080/api/v1/orgs' \
+  -H 'accept: application/json' \
+  -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "repo_admin_change_team_access": true,
+  "username": "5minorg",
+  "visibility": "public"
+}'
 curl -X 'POST' \
   'http://5min-idp-control-plane:30080/api/v1/repos/migrate' \
   -H 'accept: application/json' \
@@ -62,7 +80,42 @@ curl -X 'POST' \
   "mirror": false,
   "private": false,
   "repo_name": "backstage",
-  "repo_owner": "5minadmin"
+  "repo_owner": "5minorg"
+}'
+curl -X 'POST' \
+  'http://5min-idp-control-plane:30080/api/v1/orgs/5minorg/actions/variables/CLOUD_PROVIDER' \
+  -H 'accept: application/json' \
+  -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "value": "5min"
+}'
+curl -X 'POST' \
+  'http://5min-idp-control-plane:30080/api/v1/orgs/5minorg/actions/variables/HUMANITEC_ORG_ID' \
+  -H 'accept: application/json' \
+  -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "value": "'$HUMANITEC_ORG'"
+}'
+humanitec_app_backstage=$(terraform -chdir=setup/terraform output -raw humanitec_app_backstage)
+curl -X 'POST' \
+  'http://5min-idp-control-plane:30080/api/v1/orgs/5minorg/actions/variables/HUMANITEC_APP_ID' \
+  -H 'accept: application/json' \
+  -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "value": "'$humanitec_app_backstage'"
+}'
+### TODO -> Use from env if present instead of extracting
+HT_TOKEN=$(yq -r '.token' ~/.humctl)
+curl -X 'PUT' \
+  'http://5min-idp-control-plane:30080/api/v1/orgs/5minorg/actions/secrets/HUMANITEC_TOKEN' \
+  -H 'accept: application/json' \
+  -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "data": "'$HT_TOKEN'"
 }'
 
 # 3. Add the registry config to the nodes

@@ -21,4 +21,7 @@ docker stop gitea_runner
 docker rm gitea_runner
 docker volume rm gitea_runner_data
 
+docker stop kind-registry
+docker rm kind-registry
+
 rm -rf /state/kube

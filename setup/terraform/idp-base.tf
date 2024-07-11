@@ -8,17 +8,22 @@ resource "random_string" "install_id" {
 }
 
 locals {
-  app    = "5min-idp-${random_string.install_id.result}"
-  prefix = "${local.app}-"
+  app       = "5min-idp-${random_string.install_id.result}"
+  backstage = "5min-backstage-${random_string.install_id.result}"
+  prefix    = "${local.app}-"
 }
 
+# Demo application
 resource "humanitec_application" "demo" {
   id   = local.app
   name = local.app
+} # Backstage application & config
+resource "humanitec_application" "backstage" {
+  id   = local.backstage
+  name = local.backstage
 }
 
 # Configure k8s namespace naming
-
 resource "humanitec_resource_definition" "k8s_namespace" {
   driver_type = "humanitec/echo"
   id          = "${local.prefix}k8s-namespace"
@@ -38,9 +43,14 @@ resource "humanitec_resource_definition_criteria" "k8s_namespace" {
 
   force_delete = true
 }
+resource "humanitec_resource_definition_criteria" "k8s_namespace_backstage" {
+  resource_definition_id = humanitec_resource_definition.k8s_namespace.id
+  app_id                 = humanitec_application.backstage.id
+
+  force_delete = true
+}
 
 # Configure DNS for localhost
-
 resource "humanitec_resource_definition" "dns_localhost" {
   id          = "${local.prefix}dns-localhost"
   name        = "${local.prefix}dns-localhost"
@@ -68,9 +78,14 @@ resource "humanitec_resource_definition_criteria" "dns_localhost" {
 
   force_delete = true
 }
+resource "humanitec_resource_definition_criteria" "dns_localhost_backstage" {
+  resource_definition_id = humanitec_resource_definition.dns_localhost.id
+  app_id                 = humanitec_application.backstage.id
+
+  force_delete = true
+}
 
 # Provide postgres resource
-
 module "postgres_basic" {
   source = "github.com/humanitec-architecture/resource-packs-in-cluster//humanitec-resource-defs/postgres/basic?ref=v2024-06-05"
   prefix = local.prefix
@@ -80,6 +95,13 @@ resource "humanitec_resource_definition_criteria" "postgres_basic" {
   resource_definition_id = module.postgres_basic.id
   class                  = "default"
   app_id                 = humanitec_application.demo.id
+
+  force_delete = true
+}
+resource "humanitec_resource_definition_criteria" "postgres_basic_backstage" {
+  resource_definition_id = module.postgres_basic.id
+  class                  = "default"
+  app_id                 = humanitec_application.backstage.id
 
   force_delete = true
 }
