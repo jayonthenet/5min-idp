@@ -1,3 +1,4 @@
 kube/*
 setup/terraform/.terraform*
 setup/terraform/terraform.tfstate*
+setup/gitea/gitea-cert.yaml

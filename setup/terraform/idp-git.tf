@@ -1,3 +1,14 @@
+resource "kubernetes_namespace" "gitea" {
+  metadata {
+    name = "gitea"
+  }
+}
+
+resource "kubernetes_manifest" "gitea_cert" {
+  depends_on = [ kubernetes_namespace.gitea ]
+  manifest = file("${path.module}/../gitea/gitea-cert.yaml")
+}
+
 resource "helm_release" "gitea" {
   name             = "gitea"
   namespace        = "gitea"
@@ -13,4 +24,5 @@ resource "helm_release" "gitea" {
     file("${path.module}/gitea_values.yaml")
   ]
 
+  depends_on = [ kubernetes_manifest.gitea_cert ]
 }

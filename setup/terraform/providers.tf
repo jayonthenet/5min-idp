@@ -4,6 +4,10 @@ terraform {
   }
 
   required_providers {
+    kubernetes = {
+      source = "hashicorp/kubernetes"
+      version = "2.31.0"
+    }
     helm = {
       source  = "hashicorp/helm"
       version = "~> 2.13"
@@ -27,6 +31,10 @@ terraform {
 
 provider "humanitec" {
   org_id = var.humanitec_org
+}
+
+provider "kubernetes" {
+  config_path = var.kubeconfig
 }
 
 provider "helm" {

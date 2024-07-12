@@ -22,6 +22,16 @@ ingress:
       paths:
         - path: "/"
           pathType: "Prefix"
+    - host: "pidp-127-0-0-1.nip.io"
+      paths:
+        - path: "/"
+          pathType: "Prefix"
+  tls:
+    - secretName: "gitea-tls"
+      hosts:
+        - "git.localhost"
+        - "5min-idp-control-plane"
+        - "pidp-127-0-0-1.nip.io"
 
 gitea:
   config:

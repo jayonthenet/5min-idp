@@ -1,2 +1,3 @@
 .github
 setup/terraform/.terraform*
+setup/gitea/gitea-cert.yaml
