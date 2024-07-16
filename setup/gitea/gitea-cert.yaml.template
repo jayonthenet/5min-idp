@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: Secret
-type: kubernetes.io/tls
-metadata:
-  name: gitea-tls
-  namespace: gitea
-data:
-  tls.crt: LS0...
-  tls.key: LS0...

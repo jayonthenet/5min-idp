@@ -40,6 +40,9 @@ run-local: build
 	docker run --rm -it -h 5min-idp --name 5min-idp \
 	-e HUMANITEC_ORG \
 	-e HUMANITEC_SERVICE_USER \
+	-e TLS_CA_CERT \
+	-e TLS_CERT_STRING \
+	-e TLS_KEY_STRING \
 	-v hum-5min-idp:/state \
 	-v $(HOME)/.humctl:/root/.humctl \
 	-v /var/run/docker.sock:/var/run/docker.sock \

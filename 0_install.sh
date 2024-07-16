@@ -27,8 +27,19 @@ fi
 kubeconfig_docker=/state/kube/config-internal.yaml
 kind export kubeconfig --internal  -n 5min-idp --kubeconfig "$kubeconfig_docker"
 
+### Export needed env-vars for terraform
 export TF_VAR_humanitec_org=$HUMANITEC_ORG
-export TF_VAR_humanitec_token=$(yq -r '.token' ~/.humctl)
+# Aim for service user if present, otherwise use current user token (max 24h validity)
+if [ -z "$HUMANITEC_SERVICE_USER" ]; then
+  export TF_VAR_humanitec_token=$HUMANITEC_SERVICE_USER
+else
+  export TF_VAR_humanitec_token=$(yq -r '.token' ~/.humctl)
+fi
+# Variables for TLS in Terraform
+export TF_VAR_tls_ca_cert=$TLS_CA_CERT
+export TF_VAR_tls_cert_string=$TLS_CERT_STRING
+export TF_VAR_tls_key_string=$TLS_KEY_STRING
+# Kubeconfig for Terraform
 export TF_VAR_kubeconfig=$kubeconfig_docker
 
 terraform -chdir=setup/terraform init -upgrade
@@ -57,7 +68,8 @@ docker create \
     -e GITEA_RUNNER_LABELS=local \
     --network kind \
     gitea/act_runner:latest
-docker cp setup/gitea/config.yaml gitea_runner:/config.yaml
+sed 's|###ca-certficates.crt###|'"$TLS_CA_CERT"'|' setup/gitea/config.yaml > setup/gitea/config.done.yaml
+docker cp setup/gitea/config.done.yaml gitea_runner:/config.yaml
 docker start gitea_runner
 
 # Create Gitea org and Backstage clone with configuration
@@ -109,14 +121,13 @@ curl -k -X 'POST' \
   "value": "'$humanitec_app_backstage'"
 }'
 ### TODO -> Use from env if present instead of extracting
-HT_TOKEN=$(yq -r '.token' ~/.humctl)
 curl -k -X 'PUT' \
   'https://5min-idp-control-plane/api/v1/orgs/5minorg/actions/secrets/HUMANITEC_TOKEN' \
   -H 'accept: application/json' \
   -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==' \
   -H 'Content-Type: application/json' \
   -d '{
-  "data": "'$HT_TOKEN'"
+  "data": "'$TF_VAR_humanitec_token'"
 }'
 
 # 3. Add the registry config to the nodes
