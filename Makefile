@@ -28,20 +28,26 @@ lint: lint-init
 # Test the 5min-idp
 test: build check-image
 	docker run --rm -i -h 5min-idp --name 5min-idp \
-    -e HUMANITEC_ORG \
-    -v hum-5min-idp:/state \
-    -v $(HOME)/.humctl:/root/.humctl \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    --network bridge \
-    $(IMG) ./image/test.sh
+	-e HUMANITEC_ORG \
+	-v hum-5min-idp:/state \
+	-v $(HOME)/.humctl:/root/.humctl \
+	-v /var/run/docker.sock:/var/run/docker.sock \
+	--network bridge \
+	$(IMG) ./image/test.sh
 
 # Run the locally built image
 run-local: build
 	docker run --rm -it -h 5min-idp --name 5min-idp \
-    -e HUMANITEC_ORG \
-    -e HUMANITEC_SERVICE_USER \
-    -v hum-5min-idp:/state \
-    -v $(HOME)/.humctl:/root/.humctl \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    --network bridge \
-    $(IMG)
+	-e HUMANITEC_ORG \
+	-e HUMANITEC_SERVICE_USER \
+	-v hum-5min-idp:/state \
+	-v $(HOME)/.humctl:/root/.humctl \
+	-v /var/run/docker.sock:/var/run/docker.sock \
+	--network bridge \
+	$(IMG)
+
+# Re-do the Humanitec token in a running 5min-IDP
+.PHONY: renew-token
+renew-token:
+	humctl login -v9
+	docker cp ~/.humctl 5min-idp:/root/.humctl

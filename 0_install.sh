@@ -37,20 +37,21 @@ terraform -chdir=setup/terraform apply -auto-approve
 # Create Gitea Runner for Actions CI
 RUNNER_TOKEN=""
 while [[ -z $RUNNER_TOKEN ]]; do
-  response=$(curl -s -X 'GET' 'http://5min-idp-control-plane:30080/api/v1/admin/runners/registration-token' -H 'accept: application/json' -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==')
+  response=$(curl -k -s -X 'GET' 'https://5min-idp-control-plane/api/v1/admin/runners/registration-token' -H 'accept: application/json' -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==')
   if [[ $response == *"token"* ]]; then
     RUNNER_TOKEN=$(echo $response | jq -r '.token')
   fi
   sleep 1
 done
 
+# Start Gitea Runner
 docker volume create gitea_runner_data
 docker create \
     --name gitea_runner \
     -v gitea_runner_data:/data \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -e CONFIG_FILE=/config.yaml \
-    -e GITEA_INSTANCE_URL=http://5min-idp-control-plane:30080 \
+    -e GITEA_INSTANCE_URL=https://5min-idp-control-plane \
     -e GITEA_RUNNER_REGISTRATION_TOKEN=$RUNNER_TOKEN \
     -e GITEA_RUNNER_NAME=local \
     -e GITEA_RUNNER_LABELS=local \
@@ -60,8 +61,8 @@ docker cp setup/gitea/config.yaml gitea_runner:/config.yaml
 docker start gitea_runner
 
 # Create Gitea org and Backstage clone with configuration
-curl -X 'POST' \
-  'http://5min-idp-control-plane:30080/api/v1/orgs' \
+curl -k -X 'POST' \
+  'https://5min-idp-control-plane/api/v1/orgs' \
   -H 'accept: application/json' \
   -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==' \
   -H 'Content-Type: application/json' \
@@ -70,8 +71,8 @@ curl -X 'POST' \
   "username": "5minorg",
   "visibility": "public"
 }'
-curl -X 'POST' \
-  'http://5min-idp-control-plane:30080/api/v1/repos/migrate' \
+curl -k -X 'POST' \
+  'https://5min-idp-control-plane/api/v1/repos/migrate' \
   -H 'accept: application/json' \
   -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==' \
   -H 'Content-Type: application/json' \
@@ -82,16 +83,16 @@ curl -X 'POST' \
   "repo_name": "backstage",
   "repo_owner": "5minorg"
 }'
-curl -X 'POST' \
-  'http://5min-idp-control-plane:30080/api/v1/orgs/5minorg/actions/variables/CLOUD_PROVIDER' \
+curl -k -X 'POST' \
+  'https://5min-idp-control-plane/api/v1/orgs/5minorg/actions/variables/CLOUD_PROVIDER' \
   -H 'accept: application/json' \
   -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==' \
   -H 'Content-Type: application/json' \
   -d '{
   "value": "5min"
 }'
-curl -X 'POST' \
-  'http://5min-idp-control-plane:30080/api/v1/orgs/5minorg/actions/variables/HUMANITEC_ORG_ID' \
+curl -k -X 'POST' \
+  'https://5min-idp-control-plane/api/v1/orgs/5minorg/actions/variables/HUMANITEC_ORG_ID' \
   -H 'accept: application/json' \
   -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==' \
   -H 'Content-Type: application/json' \
@@ -99,8 +100,8 @@ curl -X 'POST' \
   "value": "'$HUMANITEC_ORG'"
 }'
 humanitec_app_backstage=$(terraform -chdir=setup/terraform output -raw humanitec_app_backstage)
-curl -X 'POST' \
-  'http://5min-idp-control-plane:30080/api/v1/orgs/5minorg/actions/variables/HUMANITEC_APP_ID' \
+curl -k -X 'POST' \
+  'https://5min-idp-control-plane/api/v1/orgs/5minorg/actions/variables/HUMANITEC_APP_ID' \
   -H 'accept: application/json' \
   -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==' \
   -H 'Content-Type: application/json' \
@@ -109,8 +110,8 @@ curl -X 'POST' \
 }'
 ### TODO -> Use from env if present instead of extracting
 HT_TOKEN=$(yq -r '.token' ~/.humctl)
-curl -X 'PUT' \
-  'http://5min-idp-control-plane:30080/api/v1/orgs/5minorg/actions/secrets/HUMANITEC_TOKEN' \
+curl -k -X 'PUT' \
+  'https://5min-idp-control-plane/api/v1/orgs/5minorg/actions/secrets/HUMANITEC_TOKEN' \
   -H 'accept: application/json' \
   -H 'authorization: Basic NW1pbmFkbWluOjVtaW5hZG1pbg==' \
   -H 'Content-Type: application/json' \
