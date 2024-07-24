@@ -48,6 +48,19 @@ run-local: build
 	-v /var/run/docker.sock:/var/run/docker.sock \
 	--network bridge \
 	$(IMG)
+# Run the locally built image and don't delete the state
+run-local-persistent: build
+	docker run -it -h 5min-idp --name 5min-idp \
+	-e HUMANITEC_ORG \
+	-e HUMANITEC_SERVICE_USER \
+	-e TLS_CA_CERT \
+	-e TLS_CERT_STRING \
+	-e TLS_KEY_STRING \
+	-v hum-5min-idp:/state \
+	-v $(HOME)/.humctl:/root/.humctl \
+	-v /var/run/docker.sock:/var/run/docker.sock \
+	--network bridge \
+	$(IMG)
 
 # Re-do the Humanitec token in a running 5min-IDP
 .PHONY: renew-token
